@@ -32,7 +32,7 @@ USEDELAYTIME = True
 # USEDELAYTIME = False
 
 useworkday = True
-useworkday = False
+# useworkday = False
 
 # 钉钉应用的包名
 DINGDING_PACKAGE = "com.alibaba.android.rimet"
@@ -49,7 +49,8 @@ COORDINATES2 =[(775,1888),(551,2083)]   # for kill dingding app manual
 ADB_PATH = "/opt/homebrew/bin/adb"
 
 # 设备连接信息
-DEVICE_IP = "10.0.0.156"
+# DEVICE_IP = "10.0.0.156"
+DEVICE_IP = "192.168.0.101"
 DEVICE_PORT = "5555"
 device_ip = f"{DEVICE_IP}:{DEVICE_PORT}"
 
