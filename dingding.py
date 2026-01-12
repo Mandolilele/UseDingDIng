@@ -49,8 +49,8 @@ COORDINATES2 =[(775,1888),(551,2083)]   # for kill dingding app manual
 ADB_PATH = "/opt/homebrew/bin/adb"
 
 # 设备连接信息
-# DEVICE_IP = "10.0.0.156"
-DEVICE_IP = "192.168.0.101"
+DEVICE_IP = "10.0.0.156"
+# DEVICE_IP = "192.168.40.122"
 DEVICE_PORT = "5555"
 device_ip = f"{DEVICE_IP}:{DEVICE_PORT}"
 
@@ -239,7 +239,7 @@ def test_wifi_connection():
     log(f"WiFi 连接结果: {result.stdout}")
     print(f">>>WiFi 连接结果: {result.stdout}")
     
-    if "connected to" in result.stdout:
+    if "connected to" in result.stdout or "already connected" in result.stdout:
         # 确认设备已连接
         time.sleep(1)  # 等待连接稳定
         devices_result = subprocess.run([ADB_PATH, "devices"], capture_output=True, text=True)
@@ -252,9 +252,52 @@ def test_wifi_connection():
             print(">>>WiFi 设备连接成功但未在设备列表中找到")
             return None
     else:
-        log("WiFi 连接失败")
-        print(">>>WiFi 连接失败")
-        return None
+        log("WiFi 连接失败，尝试通过 USB 设备补救...")
+        print(">>>WiFi 连接失败，尝试通过 USB 设备补救...")
+        
+        # 检查是否有 USB 设备连接
+        usb_device = None
+        devices_result = subprocess.run([ADB_PATH, "devices"], capture_output=True, text=True)
+        lines = devices_result.stdout.strip().split('\n')
+        for line in lines[1:]:  # 跳过第一行标题
+            if line and not device_ip in line and "device" in line:
+                usb_device = line.split()[0]  # 获取设备ID
+                break
+        
+        if usb_device:
+            log(f"发现 USB 设备: {usb_device}，正在启用 TCP/IP 模式...")
+            print(f">>>发现 USB 设备: {usb_device}，正在启用 TCP/IP 模式...")
+            tcpip_result = subprocess.run([ADB_PATH, "-s", usb_device, "tcpip", "5555"], capture_output=True, text=True)
+            log(f"TCP/IP 模式启用结果: {tcpip_result.stdout}")
+            print(f">>>TCP/IP 模式启用结果: {tcpip_result.stdout}")
+            time.sleep(2)  # 等待 TCP/IP 模式启用完成
+            
+            # 再次尝试 WiFi 连接
+            log("再次尝试 WiFi 连接...")
+            print(">>>再次尝试 WiFi 连接...")
+            result = subprocess.run([ADB_PATH, "connect", device_ip], capture_output=True, text=True)
+            log(f"第二次 WiFi 连接结果: {result.stdout}")
+            print(f">>>第二次 WiFi 连接结果: {result.stdout}")
+            
+            if "connected to" in result.stdout or "already connected" in result.stdout:
+                time.sleep(1)  # 等待连接稳定
+                devices_result = subprocess.run([ADB_PATH, "devices"], capture_output=True, text=True)
+                if device_ip in devices_result.stdout:
+                    log(f"补救成功！WiFi 连接成功！设备ID: {device_ip}")
+                    print(f">>>补救成功！WiFi 连接成功！设备ID: {device_ip}")
+                    return device_ip
+                else:
+                    log("补救后 WiFi 连接成功但未在设备列表中找到")
+                    print(">>>补救后 WiFi 连接成功但未在设备列表中找到")
+                    return None
+            else:
+                log("补救后 WiFi 连接仍然失败")
+                print(">>>补救后 WiFi 连接仍然失败")
+                return None
+        else:
+            log("未发现 USB 设备，无法补救")
+            print(">>>未发现 USB 设备，无法补救")
+            return None
 
 # 执行打卡流程
 def perform_clock_in(device_id=None):
@@ -342,34 +385,22 @@ def main(morning_base, evening_base):
             log("Current time is outside scheduled range")
             # return
 
-    # 首先尝试USB连接
-    log("尝试通过USB连接设备...")
-    print(">>>尝试通过USB连接设备...")
-    usb_device_id = test_usb_connection()
-    if usb_device_id:
-        log(f"使用USB连接执行打卡流程，设备ID: {usb_device_id}")
-        print(f">>>使用USB连接执行打卡流程，设备ID: {usb_device_id}")
-        if perform_clock_in(usb_device_id):
-            log("Script finished successfully via USB")
-            print(">>>Script finished successfully via USB")
-            return
-    
-    # 如果USB连接失败，尝试WiFi连接
-    log("尝试通过WiFi连接设备...")
-    print(">>>尝试通过WiFi连接设备...")
-    for attempt in range(5):  # 尝试WiFi连接最多5次
+    # 优先尝试 WiFi 连接
+    log("尝试通过 WiFi 连接设备...")
+    print(">>>尝试通过 WiFi 连接设备...")
+    for attempt in range(5):  # 尝试 WiFi 连接最多5次
         wifi_device_id = test_wifi_connection()
         if wifi_device_id:
-            log(f"使用WiFi连接执行打卡流程，设备ID: {wifi_device_id}")
-            print(f">>>使用WiFi连接执行打卡流程，设备ID: {wifi_device_id}")
+            log(f"使用 WiFi 连接执行打卡流程，设备ID: {wifi_device_id}")
+            print(f">>>使用 WiFi 连接执行打卡流程，设备ID: {wifi_device_id}")
             if perform_clock_in(wifi_device_id):
                 log("Script finished successfully via WiFi")
                 print(">>>Script finished successfully via WiFi")
                 return
             break  # 如果连接成功但执行失败，不再重试
         else:
-            log(f"WiFi连接尝试 {attempt + 1}/5 失败，重试中...")
-            print(f">>>WiFi连接尝试 {attempt + 1}/5 失败，重试中...")
+            log(f"WiFi 连接尝试 {attempt + 1}/5 失败，重试中...")
+            print(f">>>WiFi 连接尝试 {attempt + 1}/5 失败，重试中...")
             
             # 清理动作
             log("执行清理操作")
@@ -378,11 +409,23 @@ def main(morning_base, evening_base):
             os.system(f"{ADB_PATH} kill-server")  # 停止 ADB 服务
             os.system(f"{ADB_PATH} start-server")  # 重启 ADB 服务
             time.sleep(2)  # 等待2秒后重试
-
+    
+    # 如果 WiFi 连接失败，尝试 USB 连接打卡
+    log("WiFi 连接失败，尝试通过 USB 连接设备打卡...")
+    print(">>>WiFi 连接失败，尝试通过 USB 连接设备打卡...")
+    usb_device_id = test_usb_connection()
+    if usb_device_id:
+        log(f"使用 USB 连接执行打卡流程，设备ID: {usb_device_id}")
+        print(f">>>使用 USB 连接执行打卡流程，设备ID: {usb_device_id}")
+        if perform_clock_in(usb_device_id):
+            log("Script finished successfully via USB")
+            print(">>>Script finished successfully via USB")
+            return
+    
     # 如果所有连接方式都失败
     log("所有连接方式均失败")
     print(">>>所有连接方式均失败")
-    send_email_with_screenshot("", f"无法连接设备，USB和WiFi({device_ip})连接均失败")
+    send_email_with_screenshot("", f"无法连接设备，WiFi({device_ip})和USB连接均失败")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run DingDing automation script with specified base times.')

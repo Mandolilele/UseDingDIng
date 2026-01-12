@@ -6,7 +6,7 @@ import time
 ADB_PATH = "/opt/homebrew/bin/adb"
 
 # 设备信息
-DEVICE_IP = "192.168.0.100"
+DEVICE_IP = "10.0.0.156"
 DEVICE_PORT = "5555"
 DEVICE_USB = "device_serial_number"  # 需要替换为实际的设备序列号
 

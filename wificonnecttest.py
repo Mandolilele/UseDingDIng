@@ -2,7 +2,7 @@ import subprocess
 import os
 
 ADB_PATH = "/opt/homebrew/bin/adb"
-device_ip = "10.0.0.155:5555"
+device_ip = "192.168.1.130:5555"
 
 # 使用subprocess执行adb connect命令
 result = subprocess.run([ADB_PATH, "connect", device_ip], capture_output=True, text=True)

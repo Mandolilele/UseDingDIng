@@ -29,26 +29,30 @@ from PIL import Image
 # import psutil  # 确保已安装 psutil 库: pip install psutil
 
 USEDELAYTIME = True
-USEDELAYTIME = False
+# USEDELAYTIME = False
 
 useworkday = True
-# useworkday = False
+useworkday = False
 
 # 钉钉应用的包名
 DINGDING_PACKAGE = "com.alibaba.android.rimet"
 
 # 需要点击的坐标,这个数据需要自己在手机工程模式下去找,比划一下就搞定了.
-# COORDINATES = [(544, 2268),(544, 2268),(150,980), (560, 1400)]
-COORDINATES = [(544, 2268),(150,980), (560, 1400)] # for xiaomi 12 pro & 红米note 7 pro
+COORDINATES = [(433, 2206),(143,898), (560, 1400)] # for xiaomi 12 pro & 红米note 7 pro
+# COORDINATES = [(433, 2206),(143,898)] # for xiaomi 12 pro & 红米note 7 pro
 # COORDINATES = [(544, 2268),(150,980)] # for hongmi note 7 pro, 不实际打卡，只是关闭应用
 # COORDINATES = [(531, 1700),(136,1022), (539, 1023)]  # for huawei
 COORDINATES2 =[(775,1888),(551,2083)]   # for kill dingding app manual
 # COORDINATES = [(544, 2268),(150,980)]
 
 # adb 命令的绝对路径
-
 ADB_PATH = "/opt/homebrew/bin/adb"
-device_ip = "10.0.0.156:5555"
+
+# 设备连接信息
+DEVICE_IP = "10.0.0.156"
+# DEVICE_IP = "192.168.40.122"
+DEVICE_PORT = "5555"
+device_ip = f"{DEVICE_IP}:{DEVICE_PORT}"
 
 # 邮件配置
 SMTP_SERVER = 'smtp.qq.com'
@@ -74,44 +78,48 @@ def is_already_running():
     return False
 
 # 解锁屏幕
-def unlock_screen():
+def unlock_screen(device_id=None):
     log("Unlocking screen")
     print(">>>Unlocking screen")
     # 唤醒屏幕
-    result = os.system(f"{ADB_PATH} shell input keyevent KEYCODE_WAKEUP")
+    device_option = f"-s {device_id} " if device_id else ""
+    result = os.system(f"{ADB_PATH} {device_option}shell input keyevent KEYCODE_WAKEUP")
     log(f"Wakeup result: {result}")
     time.sleep(1)
     # 滑动解锁（从屏幕底部向上滑动）
-    result = os.system(f"{ADB_PATH} shell input swipe 500 1500 500 500")
+    result = os.system(f"{ADB_PATH} {device_option}shell input swipe 500 1500 500 500")
     log(f"Swipe result: {result}")
     time.sleep(3)
 
 # 启动钉钉应用
-def launch_dingding():
+def launch_dingding(device_id=None):
     log(f"Launching DingDing")
     print(">>>Launching DingDing")
-    result = os.system(f"{ADB_PATH} shell monkey -p {DINGDING_PACKAGE} -c android.intent.category.LAUNCHER 1")
+    device_option = f"-s {device_id} " if device_id else ""
+    result = os.system(f"{ADB_PATH} {device_option}shell monkey -p {DINGDING_PACKAGE} -c android.intent.category.LAUNCHER 1")
     log(f"Launch result: {result}")
     time.sleep(10)  # 等待应用启动
 
 # 点击指定坐标
-def click_coordinates(cor1):
+def click_coordinates(cor1, device_id=None):
+    device_option = f"-s {device_id} " if device_id else ""
     for x, y in cor1:
         log(f"Clicking coordinates ({x}, {y})")
         print(f">>>Clicking coordinates ({x}, {y})")
-        result = os.system(f"{ADB_PATH} shell input tap {x} {y}")
+        result = os.system(f"{ADB_PATH} {device_option}shell input tap {x} {y}")
         log(f"Click result: {result}")
         time.sleep(15)  # 等待n秒以避免操作太快
 
 # 截图
-def take_screenshot():
+def take_screenshot(device_id=None):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     screenshot_path = f"/Users/mandoli/code/09DD/screenshot/screenshot_{timestamp}.png"
     log(f"Taking screenshot: {screenshot_path}")
     print(f">>>Taking screenshot: {screenshot_path}")
-    result = os.system(f"{ADB_PATH} shell screencap -p /sdcard/screenshot.png")
+    device_option = f"-s {device_id} " if device_id else ""
+    result = os.system(f"{ADB_PATH} {device_option}shell screencap -p /sdcard/screenshot.png")
     log(f"Screencap result: {result}")
-    result = os.system(f"{ADB_PATH} pull /sdcard/screenshot.png {screenshot_path}")
+    result = os.system(f"{ADB_PATH} {device_option}pull /sdcard/screenshot.png {screenshot_path}")
     log(f"Pull result: {result}")
     return screenshot_path
 
@@ -164,19 +172,21 @@ def send_email_with_screenshot(screenshot_path, mailtext):
         print(">>>Email sent")
 
 # 杀掉钉钉应用
-def kill_dingding():
+def kill_dingding(device_id=None):
     log(f"Killing DingDing")
     print(">>>Killing DingDing")
-    result = os.system(f"{ADB_PATH} shell am force-stop {DINGDING_PACKAGE}")
+    device_option = f"-s {device_id} " if device_id else ""
+    result = os.system(f"{ADB_PATH} {device_option}shell am force-stop {DINGDING_PACKAGE}")
     log(f"Kill result: {result}")
     print(f">>>Killed result: {result}")
     return result
 
 # 熄灭屏幕
-def turn_off_screen():
+def turn_off_screen(device_id=None):
     log(f"Turning off screen at {datetime.now()}")
     print(">>>Turning off screen")
-    result = os.system(f"{ADB_PATH} shell input keyevent KEYCODE_POWER")
+    device_option = f"-s {device_id} " if device_id else ""
+    result = os.system(f"{ADB_PATH} {device_option}shell input keyevent KEYCODE_POWER")
     log(f"Screen off result: {result}")
 
 # 生成随机时间，确保不在指定时间点
@@ -187,6 +197,116 @@ def get_random_time(base_time, minute_range, exclude_minute):
         random_time = base_time.replace(minute=minute, second=second, microsecond=0)
         if random_time.minute != exclude_minute:
             return random_time
+
+# 测试 USB 连接
+def test_usb_connection():
+    """测试 USB 连接"""
+    log("测试 USB 连接...")
+    print(">>>测试 USB 连接...")
+    
+    # 列出已连接的设备
+    result = subprocess.run([ADB_PATH, "devices"], capture_output=True, text=True)
+    log(f"已连接设备列表:\n{result.stdout}")
+    
+    # 查找USB设备（非WiFi设备）
+    lines = result.stdout.strip().split('\n')
+    usb_device = None
+    for line in lines[1:]:  # 跳过第一行标题
+        if line and not device_ip in line and "device" in line:
+            usb_device = line.split()[0]  # 获取设备ID
+            break
+    
+    if usb_device:
+        log(f"USB 连接成功！设备ID: {usb_device}")
+        print(f">>>USB 连接成功！设备ID: {usb_device}")
+        return usb_device  # 返回设备ID而不是布尔值
+    else:
+        log("USB 连接失败或未检测到USB设备")
+        print(">>>USB 连接失败或未检测到USB设备")
+        return None  # 返回None表示没有找到USB设备
+
+# 测试 WiFi 连接
+def test_wifi_connection():
+    """测试 WiFi 连接"""
+    log("测试 WiFi 连接...")
+    print(">>>测试 WiFi 连接...")
+    
+    # 断开所有连接
+    os.system(f"{ADB_PATH} disconnect")
+    
+    # 尝试通过 WiFi 连接
+    result = subprocess.run([ADB_PATH, "connect", device_ip], capture_output=True, text=True)
+    log(f"WiFi 连接结果: {result.stdout}")
+    print(f">>>WiFi 连接结果: {result.stdout}")
+    
+    if "connected to" in result.stdout:
+        # 确认设备已连接
+        time.sleep(1)  # 等待连接稳定
+        devices_result = subprocess.run([ADB_PATH, "devices"], capture_output=True, text=True)
+        if device_ip in devices_result.stdout:
+            log(f"WiFi 连接成功！设备ID: {device_ip}")
+            print(f">>>WiFi 连接成功！设备ID: {device_ip}")
+            return device_ip  # 返回设备ID
+        else:
+            log("WiFi 设备连接成功但未在设备列表中找到")
+            print(">>>WiFi 设备连接成功但未在设备列表中找到")
+            return None
+    else:
+        log("WiFi 连接失败")
+        print(">>>WiFi 连接失败")
+        return None
+
+# 执行打卡流程
+def perform_clock_in(device_id=None):
+    screenshot_path = ""
+    unlock_screen(device_id)
+    kill_dingding_result = kill_dingding(device_id)
+    time.sleep(2)
+    # click_coordinates(COORDINATES2, device_id) #用手动方式关闭钉钉
+    if kill_dingding_result == 0:
+        mailtext = "the DingDing has been killed successfully"
+    else:
+        mailtext = "the DingDing could not be killed successfully"
+    # unlock_screen(device_id)
+    launch_dingding(device_id)
+    click_coordinates(COORDINATES, device_id) # 点击坐标进行打卡
+    time.sleep(8)
+    screenshot_path = take_screenshot(device_id) # 截图
+    
+    # 检查打卡是否成功，最多重试3次
+    max_retries = 3
+    for retry in range(max_retries):
+        if check_success_in_screenshot(screenshot_path):
+            mailtext = f"打卡成功 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            log("打卡成功确认")
+            print(">>>打卡成功确认")
+            break
+        else:
+            log(f"未检测到打卡成功，重试中 ({retry + 1}/{max_retries})")
+            print(f">>>未检测到打卡成功，重试中 ({retry + 1}/{max_retries})")
+            if retry < max_retries - 1:
+                # 重新执行打卡流程
+                kill_dingding(device_id)
+                time.sleep(2)
+                # 添加解锁屏幕步骤
+                unlock_screen(device_id)
+                launch_dingding(device_id)
+                click_coordinates(COORDINATES, device_id)
+                time.sleep(8)
+                screenshot_path = take_screenshot(device_id)  # 更新截图路径
+
+    if retry == max_retries - 1:  # 所有重试都失败
+        mailtext = f"打卡失败 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    kill_dingding_result = kill_dingding(device_id)
+    time.sleep(2)
+    # click_coordinates(COORDINATES2, device_id) #用手动方式关闭钉钉
+    # if kill_dingding_result == 0:
+    #     mailtext = "the DingDing has been killed successfully"
+    # else:
+    #     mailtext = "the DingDing could not be killed successfully"
+    send_email_with_screenshot(screenshot_path, mailtext) # 发送邮件
+    turn_off_screen(device_id)
+    return True
 
 # 主函数
 def main(morning_base, evening_base):
@@ -222,80 +342,47 @@ def main(morning_base, evening_base):
             log("Current time is outside scheduled range")
             # return
 
-    screenshot_path = ""
-    for attempt in range(10):  # 尝试连接设备最多10次
-        result = subprocess.run([ADB_PATH, "connect", device_ip], capture_output=True, text=True)
-        print(result.stdout)
-        print(result.stderr)
-
-        if "connected to" in result.stdout:
-            unlock_screen()
-            kill_dingding_result = kill_dingding()
-            time.sleep(2)
-            # click_coordinates(COORDINATES2) #用手动方式关闭钉钉
-            if kill_dingding_result == 0:
-                mailtext = "the DingDing has been killed successfully"
-            else:
-                mailtext = "the DingDing could not be killed successfully"
-            # unlock_screen()
-            launch_dingding()
-            click_coordinates(COORDINATES) # 点击坐标进行打卡
-            time.sleep(8)
-            screenshot_path = take_screenshot() # 截图
-            
-            # 检查打卡是否成功，最多重试3次
-            max_retries = 3
-            for retry in range(max_retries):
-                if check_success_in_screenshot(screenshot_path):
-                    mailtext = f"打卡成功 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                    log("打卡成功确认")
-                    print(">>>打卡成功确认")
-                    break
-                else:
-                    log(f"未检测到打卡成功，重试中 ({retry + 1}/{max_retries})")
-                    print(f">>>未检测到打卡成功，重试中 ({retry + 1}/{max_retries})")
-                    if retry < max_retries - 1:
-                        # 重新执行打卡流程
-                        kill_dingding()
-                        time.sleep(2)
-                        # 添加解锁屏幕步骤
-                        unlock_screen()
-                        launch_dingding()
-                        click_coordinates(COORDINATES)
-                        time.sleep(8)
-                        screenshot_path = take_screenshot()  # 更新截图路径
-
-            if retry == max_retries - 1:  # 所有重试都失败
-                mailtext = f"打卡失败 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            kill_dingding_result = kill_dingding()
-            time.sleep(2)
-            # click_coordinates(COORDINATES2) #用手动方式关闭钉钉
-            # if kill_dingding_result == 0:
-            #     mailtext = "the DingDing has been killed successfully"
-            # else:
-            #     mailtext = "the DingDing could not be killed successfully"
-            send_email_with_screenshot(screenshot_path,mailtext) # 发送邮件
-            turn_off_screen()
-
-            log("Script finished")
-            print(">>>Script finished")
-            return  # 成功连接后退出函数
+    # 首先尝试USB连接
+    log("尝试通过USB连接设备...")
+    print(">>>尝试通过USB连接设备...")
+    usb_device_id = test_usb_connection()
+    if usb_device_id:
+        log(f"使用USB连接执行打卡流程，设备ID: {usb_device_id}")
+        print(f">>>使用USB连接执行打卡流程，设备ID: {usb_device_id}")
+        if perform_clock_in(usb_device_id):
+            log("Script finished successfully via USB")
+            print(">>>Script finished successfully via USB")
+            return
+    
+    # 如果USB连接失败，尝试WiFi连接
+    log("尝试通过WiFi连接设备...")
+    print(">>>尝试通过WiFi连接设备...")
+    for attempt in range(5):  # 尝试WiFi连接最多5次
+        wifi_device_id = test_wifi_connection()
+        if wifi_device_id:
+            log(f"使用WiFi连接执行打卡流程，设备ID: {wifi_device_id}")
+            print(f">>>使用WiFi连接执行打卡流程，设备ID: {wifi_device_id}")
+            if perform_clock_in(wifi_device_id):
+                log("Script finished successfully via WiFi")
+                print(">>>Script finished successfully via WiFi")
+                return
+            break  # 如果连接成功但执行失败，不再重试
         else:
-            log(f"Attempt {attempt + 1}: Could not connect to device, retrying...")
-            print(f">>>Attempt {attempt + 1}: Could not connect to device, retrying...")
-
+            log(f"WiFi连接尝试 {attempt + 1}/5 失败，重试中...")
+            print(f">>>WiFi连接尝试 {attempt + 1}/5 失败，重试中...")
+            
             # 清理动作
-            log("Performing cleanup after failed connection attempt")
-            print(">>>Performing cleanup after failed connection attempt")
+            log("执行清理操作")
+            print(">>>执行清理操作")
             os.system(f"{ADB_PATH} disconnect")  # 断开所有连接
             os.system(f"{ADB_PATH} kill-server")  # 停止 ADB 服务
             os.system(f"{ADB_PATH} start-server")  # 重启 ADB 服务
-
             time.sleep(2)  # 等待2秒后重试
 
-    log("Could not connect to device after 10 attempts")
-    print(">>>Could not connect to device after 10 attempts")
-    send_email_with_screenshot("", "Could not connect to device:" + device_ip)
+    # 如果所有连接方式都失败
+    log("所有连接方式均失败")
+    print(">>>所有连接方式均失败")
+    send_email_with_screenshot("", f"无法连接设备，USB和WiFi({device_ip})连接均失败")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run DingDing automation script with specified base times.')
